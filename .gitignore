@@ -1,0 +1,19 @@
+# Python
+__pycache__
+
+# Package
+dist
+*.egg-info
+
+# Virtual env
+.fedas_codes
+
+# Notebooks
+.ipynb_checkpoints
+
+# Tests
+.pytest_cache
+.hypothesis
+
+# Data source
+data
