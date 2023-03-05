@@ -15,5 +15,6 @@ dist
 .pytest_cache
 .hypothesis
 
-# Data source
+# Data source and models dir
 data
+models
