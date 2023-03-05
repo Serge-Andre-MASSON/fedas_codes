@@ -1,4 +1,4 @@
-from task.task import Inference, Training, ValidationTraining
+from task.task import Task, Inference, Training, ValidationTraining
 
 
 def get_task(
@@ -6,7 +6,7 @@ def get_task(
     validation_split: float = None,
     infer_data_path: str = None,
     model_checkpoint_path: str = None
-):
+)-> Task:
     if train_data_path is None:
         if infer_data_path is None or model_checkpoint_path is None:
             pass
