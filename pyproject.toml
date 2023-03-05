@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fedas_codes"
+version = "0.0.1"
+authors = [
+  { name="Serge MASSON", email="serge.andre.masson@gmail.com" },
+]
+description = "A model that can predict fedas code from a text descripion."
+readme = "README.md"
+requires-python = ">=3.10"
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.scripts]
+fedas = "cli:cli"
+
+[tool.setuptools.packages.find]
+where = ["src"] 
+
+[project.urls]
+"Homepage" = "https://github.com/Serge-Andre-MASSON/fedas_codes"
