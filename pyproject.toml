@@ -12,6 +12,22 @@ description = "A model that can predict fedas code from a text descripion."
 readme = "README.md"
 requires-python = ">=3.10"
 
+dependencies = [
+    # Data extraction/analysis
+    "pandas==1.5.3",
+    "scikit-learn==1.2.1",
+
+    # Models
+    "torch==1.13.1",
+    "torchtext==0.14.1",
+
+    # Config file
+    "pyyaml==6.0",
+
+    # Tests
+    "pytest==7.2.1",
+    "hypothesis==6.68.2",
+]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
