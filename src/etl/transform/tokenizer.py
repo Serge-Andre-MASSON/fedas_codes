@@ -43,6 +43,10 @@ class Tokenizer:
             vocab.lookup_tokens(seq) for seq in tokenized_corpus
         ]
 
+    @property
+    def len_vocab(self):
+        return len(self.vocab)
+
 
 def get_tokenizer(
         text_data: Iterable[str | int],

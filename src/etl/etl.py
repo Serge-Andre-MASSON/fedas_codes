@@ -13,9 +13,11 @@ class TrainData(ETL):
         super().__init__(data_path)
         self.encoder_tokenizer = None
         self.decoder_tokenizer = None
+        self.dataloader = None
 
     def process(self):
-        text_encoder_data, text_decoder_data = extract_text_data()
+        text_encoder_data, text_decoder_data = extract_text_data(
+            self.data_path)
 
         encoder_tokenizer = get_tokenizer(
             text_encoder_data,
@@ -32,14 +34,16 @@ class TrainData(ETL):
         y = decoder_tokenizer.transform(text_decoder_data)
         self.decoder_tokenizer = decoder_tokenizer
 
+        self.dataloader = get_dataloader(X, y)
+
     def get_encoder_tokenizer(self):
         return self.encoder_tokenizer
 
     def get_decoder_tokenizer(self):
         return self.decoder_tokenizer
 
-    def get_dataloader(self, X, y):
-        return get_dataloader(X, y)
+    def get_dataloader(self):
+        return self.dataloader
 
 
 # Model checkpoint will become mandatory
