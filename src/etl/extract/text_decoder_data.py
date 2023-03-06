@@ -1,7 +1,7 @@
 from pandas import DataFrame, Series
 
 
-def get_text_decoder_data(df: DataFrame) -> Series:
+def extract_text_decoder_data(df: DataFrame) -> Series:
     """Extract correct fedas codes from source DataFrame and return
     them as a pd.Series in which each element is a tokenizer-ready version
     of the fedas code e.g. : ["<sos>", "1", "25", "46", "5", "<eos>"]

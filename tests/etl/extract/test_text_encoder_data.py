@@ -1,9 +1,4 @@
 import pandas as pd
-from etl.extract.text_encoder_data import (
-    get_text_encoder_data,
-    get_hints,
-    right_padded
-)
 
 
 train_data_path = "data/dummy_train_technical_test.csv"
