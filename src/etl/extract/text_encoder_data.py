@@ -12,7 +12,7 @@ hints_cols = [
 ]
 
 
-def extract_text_encoder_data(df: DataFrame, max_length: int = None):
+def extract_text_encoder_data(df: DataFrame, max_length: int):
     hints = get_hints(df)
     brands = df["brand"].str.split()  # "brand752" -> ["brand752"]
 

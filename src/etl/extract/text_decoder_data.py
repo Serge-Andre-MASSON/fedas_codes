@@ -14,6 +14,10 @@ def extract_text_decoder_data(df: DataFrame) -> Series:
                                    .apply(add_special_tokens)
 
 
+def extract_dummy_text_decoder_data(size: int):
+    return size*[["<sos>"]]
+
+
 def split(c: str) -> list[str]:
     return [c[0], c[1:3], c[3:5], c[-1]]
 

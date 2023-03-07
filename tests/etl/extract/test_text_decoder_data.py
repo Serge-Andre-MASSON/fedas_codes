@@ -2,7 +2,8 @@ import pandas as pd
 
 from etl.extract.text_decoder_data import (
     split,
-    add_special_tokens
+    add_special_tokens,
+    extract_dummy_text_decoder_data
 )
 
 
@@ -20,4 +21,14 @@ def test_add_special_tokens():
     splitted_fedas_code = ["1", "25", "46", "5"]
     assert add_special_tokens(splitted_fedas_code) == [
         "<sos>", "1", "25", "46", "5", "<eos>"
+    ]
+
+
+def test_extract_dummy_text_decoder_data():
+    assert extract_dummy_text_decoder_data(5) == [
+        ["<sos>"],
+        ["<sos>"],
+        ["<sos>"],
+        ["<sos>"],
+        ["<sos>"],
     ]

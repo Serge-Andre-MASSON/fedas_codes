@@ -1,5 +1,5 @@
 import pickle
-from etl.etl import ETL, TrainData
+from etl.etl import ETL, InferenceData, TrainData
 from os import mkdir
 
 from model.model import get_model
@@ -27,39 +27,40 @@ class Training(Task):
 
     def __init__(self, data_path):
         super().__init__(data_path)
-        self.model_checkpoint = {
+        self.checkpoint = {
             "task": "training"
         }
 
-    def run(self):
+    def run(self, save: bool = True):
         etl = TrainData(self.data_path)
         etl.process()
 
         encoder_tokenizer = etl.get_encoder_tokenizer()
-        self.model_checkpoint["encoder_tokenizer"] = encoder_tokenizer
+        self.checkpoint["encoder_tokenizer"] = encoder_tokenizer
 
         decoder_tokenizer = etl.get_decoder_tokenizer()
-        self.model_checkpoint["decoder_tokenizer"] = decoder_tokenizer
+        self.checkpoint["decoder_tokenizer"] = decoder_tokenizer
 
         len_encoder_vocab = encoder_tokenizer.len_vocab
-        self.model_checkpoint["len_encoder_vocab"] = len_encoder_vocab
+        self.checkpoint["len_encoder_vocab"] = len_encoder_vocab
 
         len_decoder_vocab = decoder_tokenizer.len_vocab
-        self.model_checkpoint["len_decoder_vocab"] = len_decoder_vocab
+        self.checkpoint["len_decoder_vocab"] = len_decoder_vocab
 
         model = get_model(len_encoder_vocab, len_decoder_vocab)
         train_dl = etl.get_dataloader()
 
         trainer = Trainer(model)
-        trainer.fit(train_dl, epochs=1)
+        trainer.fit(train_dl, epochs=50)
 
-        self.model_checkpoint["model_state_dict"] = model.state_dict()
+        self.checkpoint["model_state_dict"] = model.state_dict()
 
-        self.id = id(self.model_checkpoint)
-        self.create_models_dir()
+        self.id = id(self.checkpoint)
+        if save:
+            self.create_models_dir()
 
-        with open(f"models/{self.id}.PICKLE", "wb") as f:
-            pickle.dump(self.model_checkpoint, f)
+            with open(f"models/{self.id}.PICKLE", "wb") as f:
+                pickle.dump(self.checkpoint, f)
 
     def create_models_dir(self):
         try:
@@ -84,9 +85,29 @@ class ValidationTraining(Task):
 class Inference(Task):
     """Create a Task for inference with a pretrained model."""
 
-    def __init__(self, data_path, model_checkpoint_path):
+    def __init__(self, data_path, checkpoint_path):
         super().__init__(data_path)
-        self.model_checkpoint_path = model_checkpoint_path
+        self.checkpoint_path = checkpoint_path
 
     def run(self):
+        with open(self.checkpoint_path, "rb") as f:
+            self.checkpoint = pickle.load(f)
         print("Inference")
+        etl = InferenceData(
+            self.data_path,
+            self.checkpoint
+        )
+
+        etl.process()
+        dataloader = etl.get_dataloader()
+
+        len_encoder_vocab = self.checkpoint["len_encoder_vocab"]
+        len_decoder_vocab = self.checkpoint["len_decoder_vocab"]
+
+        model = get_model(len_encoder_vocab, len_decoder_vocab)
+        model_state_dict = self.checkpoint["model_state_dict"]
+
+        model.load_state_dict(model_state_dict)
+
+        print(model)
+        # then predict

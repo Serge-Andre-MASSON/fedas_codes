@@ -1,5 +1,6 @@
+import pickle
 from etl.extract.text_data import extract_text_data
-from etl.transform.tokenizer import get_tokenizer
+from etl.transform.tokenizer import Tokenizer, get_tokenizer
 from etl.load.dataloader import get_dataloader
 
 
@@ -46,10 +47,27 @@ class TrainData(ETL):
         return self.dataloader
 
 
-# Model checkpoint will become mandatory
 class InferenceData(ETL):
-    def __init__(self, data_path, model_checkpoint_path: str = None):
+    def __init__(self, data_path, model_checkpoint):
         super().__init__(data_path)
-        self.model_checkpoint = model_checkpoint_path
-        if model_checkpoint_path:
-            self.tokenizer = model_checkpoint_path.tokenizer
+        self.model_checkpoint = model_checkpoint
+
+        self.dataloader = None
+
+    def process(self):
+        encoder_tokenizer: Tokenizer = self.model_checkpoint["encoder_tokenizer"]
+        decoder_tokenizer: Tokenizer = self.model_checkpoint["decoder_tokenizer"]
+
+        text_encoder_data, text_decoder_data = extract_text_data(
+            self.data_path,
+            encoder_max_length=20,
+            text_decoder_data=False
+        )
+
+        X = encoder_tokenizer.transform(text_encoder_data)
+        y = decoder_tokenizer.transform(text_decoder_data)
+
+        self.dataloader = get_dataloader(X, y)
+
+    def get_dataloader(self):
+        return self.dataloader
