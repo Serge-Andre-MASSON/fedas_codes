@@ -12,12 +12,12 @@ hints_cols = [
 ]
 
 
-def extract_text_encoder_data(df: DataFrame, max_length: int):
+def extract_text_encoder_data(df: DataFrame):
     hints = get_hints(df)
     brands = df["brand"].str.split()  # "brand752" -> ["brand752"]
 
     X_ = brands + hints
-    return right_padded(X_, max_length)
+    return right_padded(X_)
 
 
 def get_hints(df: DataFrame) -> Series:
@@ -31,9 +31,8 @@ def get_hints(df: DataFrame) -> Series:
                          .str.split()
 
 
-def right_padded(X_: Iterable[list] | pd.Series, max_length: int = None):
-    if max_length is None:
-        max_length = X_.apply(len).max()
+def right_padded(X_: Iterable[list] | pd.Series):
+    max_length = X_.apply(len).max()
     for l in X_:
         while len(l) < max_length:
             l.append("<pad>")
