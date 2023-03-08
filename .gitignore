@@ -19,3 +19,6 @@ dist
 # Data source and models dir
 data
 models
+
+# vscode stuffs
+.vscode
