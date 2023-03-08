@@ -18,8 +18,7 @@ class Model(Module):
             masks,
             dim_feedforward,
             len_encoder_vocab,
-            len_decoder_vocab,
-            batch_first) -> None:
+            len_decoder_vocab) -> None:
         super().__init__()
 
         self.d_model = d_model
@@ -45,7 +44,7 @@ class Model(Module):
             num_encoder_layers,
             num_decoder_layers,
             dim_feedforward,
-            batch_first=batch_first
+            batch_first=True
         )
 
         self.generator = Linear(d_model, len_decoder_vocab)

@@ -3,4 +3,3 @@ nhead: 8
 num_encoder_layers: 3
 num_decoder_layers: 3
 dim_feedforward: 128
-batch_first: True

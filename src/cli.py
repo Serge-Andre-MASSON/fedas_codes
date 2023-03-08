@@ -9,6 +9,7 @@ subparsers = parser.add_subparsers()
 train_parser = subparsers.add_parser('train', help='')
 train_parser.add_argument("train_data_path")
 train_parser.add_argument("--validation_split", "-v", type=float)
+train_parser.add_argument("--model-name", "-n")
 
 infer_parser = subparsers.add_parser('infer', help='')
 infer_parser.add_argument("model_checkpoint_path")

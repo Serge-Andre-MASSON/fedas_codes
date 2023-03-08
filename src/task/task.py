@@ -1,6 +1,9 @@
+from sklearn.model_selection import train_test_split
+from etl.extract.text_data import extract_text_data
 import pickle
-from etl.etl import ETL, InferenceData, TrainData
 from os import mkdir
+from etl.load.dataloader import get_dataloader
+from etl.transform.tokenizer import Tokenizer
 
 from model.model import get_model
 from trainer.trainer import Trainer
@@ -11,10 +14,6 @@ class Task:
 
     def __init__(self, data_path):
         self.data_path = data_path
-        self.etl = None
-
-    def set_etl(self, etl: ETL) -> None:
-        self.etl = etl
 
     def run(self):
         pass
@@ -25,42 +24,49 @@ class Training(Task):
     The resulting model may be used for inference on unknown data.
     """
 
-    def __init__(self, data_path):
+    def __init__(self, data_path, model_name: str = None) -> None:
         super().__init__(data_path)
+        self.model_name = model_name or id(self)
+        self.encoder_tokenizer = Tokenizer(
+            special_tokens=["<pad>"]
+        )
+        self.decoder_tokenizer = Tokenizer(
+            special_tokens=["<sos>", "<eos>"]
+        )
         self.checkpoint = {
-            "task": "training"
+            "model_name": self.model_name
         }
 
     def run(self, save: bool = True):
-        etl = TrainData(self.data_path)
-        etl.process()
+        text_encoder_data, text_decoder_data = extract_text_data(
+            self.data_path)
 
-        encoder_tokenizer = etl.get_encoder_tokenizer()
-        self.checkpoint["encoder_tokenizer"] = encoder_tokenizer
+        encoder_data = self.encoder_tokenizer.fit_transform(text_encoder_data)
+        decoder_data = self.decoder_tokenizer.fit_transform(text_decoder_data)
 
-        decoder_tokenizer = etl.get_decoder_tokenizer()
-        self.checkpoint["decoder_tokenizer"] = decoder_tokenizer
+        dl = get_dataloader(encoder_data, decoder_data)
 
-        len_encoder_vocab = encoder_tokenizer.len_vocab
-        self.checkpoint["len_encoder_vocab"] = len_encoder_vocab
+        self.checkpoint["encoder_tokenizer"] = self.encoder_tokenizer
+        self.checkpoint["decoder_tokenizer"] = self.decoder_tokenizer
 
-        len_decoder_vocab = decoder_tokenizer.len_vocab
-        self.checkpoint["len_decoder_vocab"] = len_decoder_vocab
+        len_encoder_vocab = self.encoder_tokenizer.len_vocab
+
+        len_decoder_vocab = self.decoder_tokenizer.len_vocab
 
         model = get_model(len_encoder_vocab, len_decoder_vocab)
-        train_dl = etl.get_dataloader()
 
         trainer = Trainer(model)
-        trainer.fit(train_dl, epochs=50)
+        trainer.fit(dl)
 
         self.checkpoint["model_state_dict"] = model.state_dict()
+        self.checkpoint["model"] = model
 
-        self.id = id(self.checkpoint)
         if save:
+            checkpoint_path = f"models/{self.model_name}.PICKLE"
             self.create_models_dir()
-
-            with open(f"models/{self.id}.PICKLE", "wb") as f:
+            with open(checkpoint_path, "wb") as f:
                 pickle.dump(self.checkpoint, f)
+            print(checkpoint_path)
 
     def create_models_dir(self):
         try:
@@ -74,12 +80,45 @@ class ValidationTraining(Task):
     This should be used for experiments.
     """
 
-    def __init__(self, data_path, validation_split):
+    def __init__(self, data_path, validation_split, random_state: int = 42):
         super().__init__(data_path)
         self.validation_split = validation_split
+        self.random_state = random_state
+
+        self.encoder_tokenizer = Tokenizer(
+            special_tokens=["<pad>"]
+        )
+        self.decoder_tokenizer = Tokenizer(
+            special_tokens=["<sos>", "<eos>"]
+        )
 
     def run(self):
-        print("Experimental training")
+        text_encoder_data, text_decoder_data = extract_text_data(
+            self.data_path)
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            text_encoder_data,
+            text_decoder_data,
+            test_size=self.validation_split,
+            random_state=self.random_state
+        )
+
+        X_train = self.encoder_tokenizer.fit_transform(X_train)
+        y_train = self.decoder_tokenizer.fit_transform(y_train)
+
+        X_test = self.encoder_tokenizer.transform(X_test)
+        y_test = self.decoder_tokenizer.transform(y_test)
+
+        train_dl = get_dataloader(X_train, y_train)
+        test_dl = get_dataloader(X_test, y_test)
+
+        len_encoder_vocab = self.encoder_tokenizer.len_vocab
+        len_decoder_vocab = self.decoder_tokenizer.len_vocab
+
+        model = get_model(len_encoder_vocab, len_decoder_vocab)
+
+        trainer = Trainer(model)
+        trainer.fit(train_dl, test_dl, epochs=50)
 
 
 class Inference(Task):
@@ -92,17 +131,26 @@ class Inference(Task):
     def run(self):
         with open(self.checkpoint_path, "rb") as f:
             self.checkpoint = pickle.load(f)
-        print("Inference")
-        etl = InferenceData(
+
+        text_encoder_data, text_decoder_data = extract_text_data(
             self.data_path,
-            self.checkpoint
+            text_decoder_data=False
         )
 
-        etl.process()
-        dataloader = etl.get_dataloader()
+        encoder_tokenizer: Tokenizer = self.checkpoint["encoder_tokenizer"]
+        decoder_tokenizer: Tokenizer = self.checkpoint["decoder_tokenizer"]
 
-        len_encoder_vocab = self.checkpoint["len_encoder_vocab"]
-        len_decoder_vocab = self.checkpoint["len_decoder_vocab"]
+        encoder_data = encoder_tokenizer.transform(text_encoder_data)
+        decoder_data = decoder_tokenizer.transform(text_decoder_data)
+
+        dl = get_dataloader(
+            encoder_data,
+            decoder_data,
+            shuffle=False
+        )
+
+        len_encoder_vocab = encoder_tokenizer.len_vocab
+        len_decoder_vocab = decoder_tokenizer.len_vocab
 
         model = get_model(len_encoder_vocab, len_decoder_vocab)
         model_state_dict = self.checkpoint["model_state_dict"]
@@ -110,4 +158,3 @@ class Inference(Task):
         model.load_state_dict(model_state_dict)
 
         print(model)
-        # then predict

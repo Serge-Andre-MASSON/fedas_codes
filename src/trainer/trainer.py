@@ -27,9 +27,10 @@ class Trainer:
         self.model = model
         self.optimizer = Adam(model.parameters())
 
-    def fit(self, train_dl, epochs=10):
+    def fit(self, train_dl, test_dl=None, epochs=10):
         for epoch in range(epochs):
             print(f"Epoch {epoch + 1} / {epochs}")
+            losses = []
             for batch in tqdm(train_dl):
                 loss = batch_loss(self.model, cross_entropy, batch)
                 if loss.isnan():
@@ -37,4 +38,17 @@ class Trainer:
                 loss.backward()
                 self.optimizer.step()
                 self.optimizer.zero_grad()
-            print(f"loss  : {loss}")
+                losses.append(loss.detach().cpu().numpy())
+            train_loss = sum(losses) / len(losses)
+            print(f"train loss  : {train_loss}")
+
+            if test_dl is not None:
+                self.model.eval()
+                losses = []
+                for batch in test_dl:
+                    losses.append(batch_loss(self.model, cross_entropy,
+                                             batch).detach().cpu().numpy())
+                val_loss = sum(losses) / len(losses)
+
+                print(f"validation loss  : {val_loss}")
+            self.model.train()

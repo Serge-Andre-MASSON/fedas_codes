@@ -27,7 +27,12 @@ dependencies = [
     # Tests
     "pytest==7.2.1",
     "hypothesis==6.68.2",
+
+    # Notebooks
+    "ipykernel==6.21.2",
 ]
+
+
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",

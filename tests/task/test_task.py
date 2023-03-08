@@ -1,6 +1,4 @@
-from os import mkdir, rmdir
 import pytest
-from etl.etl import ETL
 from task.task import Task
 
 
