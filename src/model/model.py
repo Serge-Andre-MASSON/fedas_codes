@@ -67,6 +67,24 @@ class Model(Module):
 
         return self.generator(transformed)
 
+    def predict(self, X: torch.Tensor, y_in: torch.Tensor = None):
+        self.eval()  # For results consistency
+        if y_in is None:
+            y_in = torch.zeros(X.size(0), 1).long().to("cuda")
+
+        y = None
+
+        for _ in range(4):
+            y_out = self(X, y_in)
+            y_out = y_out[:, -1, :].argmax(-1).view(-1, 1)
+            if y is None:
+                y = y_out
+            else:
+                y = torch.cat([y, y_out], axis=-1)
+            y_in = torch.cat([y_in, y_out], axis=-1)
+
+        return y
+
 
 def get_model(len_encoder_vocab, len_decoder_vocab, model_conf=model_conf_path):
     with open(model_conf) as f:
