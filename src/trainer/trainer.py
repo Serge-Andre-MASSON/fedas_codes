@@ -1,4 +1,5 @@
 from tqdm import tqdm
+import torch
 
 from model.model import Model
 from torch.nn.functional import cross_entropy
@@ -8,14 +9,12 @@ from torch.optim import Adam
 # TODO: Read more about pytorch-lightning. Maybe useful.
 
 
-def batch_loss(model, loss_function, batch, max_output_length=5):
+def batch_loss(model, loss_function, batch):
     x, y_in, y_out = batch
     y = model(x, y_in)
 
-    l = max_output_length
-
-    y = y[:, -l, :].contiguous().view(-1, y.size(-1))
-    y_out = y_out[:, -l].contiguous().view(-1)
+    y = y.view(-1, y.size(-1))
+    y_out = y_out.view(-1)
 
     y_reshaped = y.view(-1, y.size(-1))
     loss = loss_function(y_reshaped, y_out)
@@ -31,6 +30,7 @@ class Trainer:
         for epoch in range(epochs):
             print(f"Epoch {epoch + 1} / {epochs}")
             losses = []
+            self.model.train()
             for batch in tqdm(train_dl):
                 loss = batch_loss(self.model, cross_entropy, batch)
                 if loss.isnan():
@@ -45,10 +45,29 @@ class Trainer:
             if test_dl is not None:
                 self.model.eval()
                 losses = []
+                matches = None
                 for batch in test_dl:
                     losses.append(batch_loss(self.model, cross_entropy,
                                              batch).detach().cpu().numpy())
+                    X, _, y_out = batch
+                    expect = y_out[:, :-1]
+                    assert expect.size(1) == 4
+
+                    pred = self.model.predict(X)
+                    match = ((pred-expect) == 0)
+
+                    if matches is None:
+                        matches = match
+                    else:
+                        matches = torch.cat([matches, match])
+
+                matches = matches.float()
                 val_loss = sum(losses) / len(losses)
 
+                # Maybe not really what I want to compute
+                val_accuracy = (matches.sum(axis=1) == 4).float().mean()
+                val_sub_accuracy = matches.mean()
+
                 print(f"validation loss  : {val_loss}")
-            self.model.train()
+                print(f"validation accurracy  : {val_accuracy}")
+                print(f"validation sub accurracy  : {val_sub_accuracy}")
