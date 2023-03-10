@@ -1,4 +1,6 @@
+import pandas as pd
 from sklearn.model_selection import train_test_split
+import torch
 from etl.extract.text_data import extract_text_data
 import pickle
 from os import mkdir
@@ -56,7 +58,7 @@ class Training(Task):
         model = get_model(len_encoder_vocab, len_decoder_vocab)
 
         trainer = Trainer(model)
-        trainer.fit(dl)
+        trainer.fit(dl, epochs=150)
 
         self.checkpoint["model_state_dict"] = model.state_dict()
         self.checkpoint["model"] = model
@@ -118,7 +120,7 @@ class ValidationTraining(Task):
         model = get_model(len_encoder_vocab, len_decoder_vocab)
 
         trainer = Trainer(model)
-        trainer.fit(train_dl, test_dl, epochs=50)
+        trainer.fit(train_dl, test_dl, epochs=200)
 
 
 class Inference(Task):
@@ -146,7 +148,8 @@ class Inference(Task):
         dl = get_dataloader(
             encoder_data,
             decoder_data,
-            shuffle=False
+            shuffle=False,
+            batch_size=2048
         )
 
         len_encoder_vocab = encoder_tokenizer.len_vocab
@@ -156,5 +159,23 @@ class Inference(Task):
         model_state_dict = self.checkpoint["model_state_dict"]
 
         model.load_state_dict(model_state_dict)
+        raw_pred = None
+        for batch in dl:
+            X, _, _ = batch
+            pred = model.predict(X)
+            if raw_pred is None:
+                raw_pred = pred
+            else:
+                raw_pred = torch.cat([raw_pred, pred])
 
-        print(model)
+        output_df = pd.read_csv(self.data_path)
+
+        raw_pred = raw_pred.detach().cpu().numpy()
+        output_df["predicted_fedas_code"] = decoder_tokenizer.inverse_transform(
+            raw_pred
+        )
+
+        output_df["predicted_fedas_code"] = output_df["predicted_fedas_code"].apply(
+            lambda l: int(''.join(c for c in l))
+        )
+        output_df.to_csv(f"{self.checkpoint_path}.csv", index=False)
