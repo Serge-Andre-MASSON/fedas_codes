@@ -6,9 +6,6 @@ from torch.nn.functional import cross_entropy
 from torch.optim import Adam
 
 
-# TODO: Read more about pytorch-lightning. Maybe useful.
-
-
 def batch_loss(model, loss_function, batch):
     x, y_in, y_out = batch
     y = model(x, y_in)
@@ -53,7 +50,7 @@ class Trainer:
                     expect = y_out[:, :-1]
                     assert expect.size(1) == 4
 
-                    pred = self.model.predict(X)
+                    _, pred = self.model.predict(X)
                     match = ((pred-expect) == 0)
 
                     if matches is None:
@@ -64,7 +61,6 @@ class Trainer:
                 matches = matches.float()
                 val_loss = sum(losses) / len(losses)
 
-                # Maybe not really what I want to compute
                 val_accuracy = (matches.sum(axis=1) == 4).float().mean()
                 val_sub_accuracy = matches.mean()
 

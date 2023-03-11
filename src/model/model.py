@@ -70,20 +70,29 @@ class Model(Module):
     def predict(self, X: torch.Tensor, y_in: torch.Tensor = None):
         self.eval()  # For results consistency
         if y_in is None:
-            y_in = torch.zeros(X.size(0), 1).long().to("cuda")
+            y_in = torch.zeros(X.size(0), 1)\
+                .long()\
+                .to("cuda")  # Assuming 0 is the <sos> token id
 
         y = None
+        p = None
 
         for _ in range(4):
-            y_out = self(X, y_in)
-            y_out = y_out[:, -1, :].argmax(-1).view(-1, 1)
-            if y is None:
-                y = y_out
-            else:
-                y = torch.cat([y, y_out], axis=-1)
-            y_in = torch.cat([y_in, y_out], axis=-1)
+            probs, preds = self(X, y_in)[:, -1, :].softmax(-1).max(-1)
+            preds = preds.view(-1, 1)
+            probs = probs.view(-1, 1)
 
-        return y
+            if y is None:
+                y = preds
+                p = probs
+
+            else:
+                y = torch.cat([y, preds], axis=-1)
+                p = torch.cat([p, probs], axis=-1)
+
+            y_in = torch.cat([y_in, preds], axis=-1)
+
+        return y, p
 
 
 def get_model(len_encoder_vocab, len_decoder_vocab, model_conf=model_conf_path):

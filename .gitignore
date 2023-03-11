@@ -10,7 +10,7 @@ dist
 
 # Notebooks
 .ipynb_checkpoints
-.ipynb
+*.ipynb
 
 # Tests
 .pytest_cache

@@ -8,6 +8,7 @@ def get_task(
     model_checkpoint_path: str = None,
     model_name: str = None
 ) -> Task:
+    """Return a task according to the provided kwargs."""
     if train_data_path is None:
         if infer_data_path is None or model_checkpoint_path is None:
             pass
