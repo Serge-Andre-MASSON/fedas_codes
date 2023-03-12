@@ -1,8 +1,12 @@
+from abc import ABC
+from pathlib import Path
+import sys
 import pandas as pd
 from sklearn.model_selection import train_test_split
 import torch
 from etl.extract.text_data import extract_text_data
 import pickle
+from tqdm import tqdm
 from os import mkdir
 from etl.load.dataloader import get_dataloader
 from etl.transform.tokenizer import Tokenizer
@@ -10,12 +14,15 @@ from etl.transform.tokenizer import Tokenizer
 from model.model import get_model
 from trainer.trainer import Trainer
 
+MODEL_DIR = Path("models")
+MODEL_DIR.mkdir(exist_ok=True)
+
 
 class Task:
     """Create a Task"""
 
     def __init__(self, data_path):
-        self.data_path = data_path
+        self.data_path = Path(data_path)
 
     def run(self):
         pass
@@ -28,13 +35,17 @@ class Training(Task):
 
     def __init__(self, data_path, model_name: str = None) -> None:
         super().__init__(data_path)
+
         self.model_name = model_name or id(self)
+        self.checkpoint_path = MODEL_DIR / f"{self.model_name}.PICKLE"
+
         self.encoder_tokenizer = Tokenizer(
             special_tokens=["<pad>"]
         )
         self.decoder_tokenizer = Tokenizer(
             special_tokens=["<sos>", "<eos>"]
         )
+
         self.checkpoint = {
             "model_name": self.model_name
         }
@@ -52,29 +63,37 @@ class Training(Task):
         self.checkpoint["decoder_tokenizer"] = self.decoder_tokenizer
 
         len_encoder_vocab = self.encoder_tokenizer.len_vocab
-
         len_decoder_vocab = self.decoder_tokenizer.len_vocab
 
         model = get_model(len_encoder_vocab, len_decoder_vocab)
 
         trainer = Trainer(model)
-        trainer.fit(dl, epochs=150)
+        try:
+            trainer.fit(dl)
+        except KeyboardInterrupt:
+            # self.checkpoint["model_state_dict"] = model.state_dict()
+            self.checkpoint["model"] = model
+            self.save()
+            sys.exit()
 
-        self.checkpoint["model_state_dict"] = model.state_dict()
+        # self.checkpoint["model_state_dict"] = model.state_dict()
         self.checkpoint["model"] = model
 
         if save:
-            checkpoint_path = f"models/{self.model_name}.PICKLE"
-            self.create_models_dir()
-            with open(checkpoint_path, "wb") as f:
-                pickle.dump(self.checkpoint, f)
-            print(checkpoint_path)
+            self.save()
 
-    def create_models_dir(self):
-        try:
-            mkdir("models")
-        except FileExistsError:
-            pass
+    def save(self):
+        # self.create_models_dir()
+        with open(self.checkpoint_path, "wb") as f:
+            pickle.dump(self.checkpoint, f)
+
+        print(self.checkpoint_path)
+
+    # def create_models_dir(self):
+    #     try:
+    #         mkdir("models")
+    #     except FileExistsError:
+    #         pass
 
 
 class ValidationTraining(Task):
@@ -120,62 +139,66 @@ class ValidationTraining(Task):
         model = get_model(len_encoder_vocab, len_decoder_vocab)
 
         trainer = Trainer(model)
-        trainer.fit(train_dl, test_dl, epochs=200)
+        try:
+            trainer.fit(train_dl, test_dl)
+        except KeyboardInterrupt:
+            sys.exit()
 
 
 class Inference(Task):
     """Create a Task for inference with a pretrained model."""
 
-    def __init__(self, data_path, checkpoint_path):
+    def __init__(self, data_path, model_name):
         super().__init__(data_path)
-        self.checkpoint_path = checkpoint_path
+        self.model_name = model_name
+        self.checkpoint_path = MODEL_DIR / f"{self.model_name}.PICKLE"
 
     def run(self):
         with open(self.checkpoint_path, "rb") as f:
             self.checkpoint = pickle.load(f)
 
-        text_encoder_data, text_decoder_data = extract_text_data(
-            self.data_path,
-            text_decoder_data=False
-        )
-
         encoder_tokenizer: Tokenizer = self.checkpoint["encoder_tokenizer"]
         decoder_tokenizer: Tokenizer = self.checkpoint["decoder_tokenizer"]
+        # len_encoder_vocab = encoder_tokenizer.len_vocab
+        # len_decoder_vocab = decoder_tokenizer.len_vocab
+        model = self.checkpoint["model"]
 
-        encoder_data = encoder_tokenizer.transform(text_encoder_data)
-        decoder_data = decoder_tokenizer.transform(text_decoder_data)
-
-        dl = get_dataloader(
-            encoder_data,
-            decoder_data,
-            shuffle=False,
-            batch_size=2048
+        text_encoder_data = extract_text_data(
+            self.data_path
         )
 
-        len_encoder_vocab = encoder_tokenizer.len_vocab
-        len_decoder_vocab = decoder_tokenizer.len_vocab
+        encoder_data = encoder_tokenizer.transform(text_encoder_data)
+        dl = get_dataloader(encoder_data)
 
-        model = get_model(len_encoder_vocab, len_decoder_vocab)
-        model_state_dict = self.checkpoint["model_state_dict"]
+        # model.load_state_dict(model_state_dict)
 
-        model.load_state_dict(model_state_dict)
         raw_pred = None
-        for batch in dl:
-            X, _, _ = batch
-            pred = model.predict(X)
-            if raw_pred is None:
-                raw_pred = pred
-            else:
-                raw_pred = torch.cat([raw_pred, pred])
+        raw_prob = None
+
+        for batch in tqdm(dl):
+            prob, pred = model.predict(batch)
+            raw_pred = pred if raw_pred is None else torch.cat(
+                [raw_pred, pred])
+            raw_prob = prob if raw_prob is None else torch.cat(
+                [raw_prob, prob])
 
         output_df = pd.read_csv(self.data_path)
 
-        raw_pred = raw_pred.detach().cpu().numpy()
+        raw_pred = raw_pred.cpu().numpy()
+        raw_prob = raw_prob.cpu().numpy()
+
         output_df["predicted_fedas_code"] = decoder_tokenizer.inverse_transform(
             raw_pred
         )
 
         output_df["predicted_fedas_code"] = output_df["predicted_fedas_code"].apply(
             lambda l: int(''.join(c for c in l))
-        )
-        output_df.to_csv(f"{self.checkpoint_path}.csv", index=False)
+        ).astype(int)
+
+        prob_df = pd.DataFrame(raw_prob)
+        output_df = pd.concat([output_df, prob_df], axis=1)
+
+        output_path = Path(f"models/{self.model_name}.csv")
+        output_df.to_csv(output_path, index=False)
+
+        return output_df
