@@ -5,9 +5,6 @@ __pycache__
 dist
 *.egg-info
 
-# Virtual env
-.fedas_codes
-
 # Notebooks
 .ipynb_checkpoints
 *.ipynb
