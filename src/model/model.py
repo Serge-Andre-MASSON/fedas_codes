@@ -1,11 +1,12 @@
 from os.path import dirname
+from pathlib import Path
 import torch
 from yaml import load, Loader
 from torch.nn import Module, Embedding, Transformer, Linear
 
 from model.utils.utils import Mask, PositionalEncoding
 
-model_conf_path = f"{dirname(__file__)}/model.yaml"
+CONF_PATH = Path(f"{dirname(__file__)}") / "default_model.yaml"
 
 
 class Model(Module):
@@ -49,9 +50,9 @@ class Model(Module):
 
         self.generator = Linear(d_model, len_decoder_vocab)
 
-    def forward(self, X, y):
-        src_key_padding_mask = self.padding_mask(X)
-        tgt_mask = self.subsequent_mask(y)
+    def forward(self, X, y) -> torch.Tensor:
+        padding_mask = self.padding_mask(X)
+        subsequent_mask = self.subsequent_mask(y)
 
         X = self.hints_embeddings(X)
         X = self.x_pe(X)
@@ -61,18 +62,18 @@ class Model(Module):
 
         transformed = self.transformer(
             X, y,
-            src_key_padding_mask=src_key_padding_mask,
-            tgt_mask=tgt_mask
+            src_key_padding_mask=padding_mask,
+            tgt_mask=subsequent_mask
         )
 
         return self.generator(transformed)
 
-    def predict(self, X: torch.Tensor, y_in: torch.Tensor = None):
+    @torch.no_grad()
+    def predict(self, X: torch.Tensor):
         self.eval()  # For results consistency
-        if y_in is None:
-            y_in = torch.zeros(X.size(0), 1)\
-                .long()\
-                .to("cuda")  # Assuming 0 is the <sos> token id
+        y_in = torch.zeros(X.size(0), 1)\
+                    .long()\
+                    .to("cuda")  # Assuming 0 is the <sos> token id
 
         y = None
         p = None
@@ -82,32 +83,29 @@ class Model(Module):
             preds = preds.view(-1, 1)
             probs = probs.view(-1, 1)
 
-            if y is None:
-                y = preds
-                p = probs
-
-            else:
-                y = torch.cat([y, preds], axis=-1)
-                p = torch.cat([p, probs], axis=-1)
+            y = preds if y is None else torch.cat([y, preds], axis=-1)
+            p = probs if p is None else torch.cat([p, probs], axis=-1)
 
             y_in = torch.cat([y_in, preds], axis=-1)
 
-        return y, p
+        return p, y
 
 
-def get_model(len_encoder_vocab, len_decoder_vocab, model_conf=model_conf_path):
-    with open(model_conf) as f:
-        yaml_conf = load(f, Loader=Loader)
+def get_model(len_encoder_vocab: int, len_decoder_vocab: int, conf_path=CONF_PATH):
+    with open(conf_path) as f:
+        conf = load(f, Loader=Loader)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    masks: Mask = Mask(device)
-
     model = Model(
-        masks=masks,
+        masks=Mask(device),
         len_encoder_vocab=len_encoder_vocab,
         len_decoder_vocab=len_decoder_vocab,
-        **yaml_conf
+        **conf
     ).to(device)
+
+    for p in model.parameters():
+        if p.dim() > 1:
+            torch.nn.init.xavier_uniform_(p)
 
     return model
