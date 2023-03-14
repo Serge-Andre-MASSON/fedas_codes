@@ -9,6 +9,7 @@ hints_cols = [
     "article_type",
     "article_detail",
     "comment",
+    "model_label"
 ]
 
 
