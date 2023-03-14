@@ -1,4 +1,3 @@
-from abc import ABC
 from pathlib import Path
 import sys
 import pandas as pd
@@ -7,7 +6,6 @@ import torch
 from etl.extract.text_data import extract_text_data
 import pickle
 from tqdm import tqdm
-from os import mkdir
 from etl.load.dataloader import get_dataloader
 from etl.transform.tokenizer import Tokenizer
 
@@ -40,7 +38,8 @@ class Training(Task):
         self.checkpoint_path = MODEL_DIR / f"{self.model_name}.PICKLE"
 
         self.encoder_tokenizer = Tokenizer(
-            special_tokens=["<pad>"]
+            special_tokens=["<pad>"],
+            min_freq=3
         )
         self.decoder_tokenizer = Tokenizer(
             special_tokens=["<sos>", "<eos>"]
@@ -71,29 +70,20 @@ class Training(Task):
         try:
             trainer.fit(dl)
         except KeyboardInterrupt:
-            # self.checkpoint["model_state_dict"] = model.state_dict()
             self.checkpoint["model"] = model
             self.save()
             sys.exit()
 
-        # self.checkpoint["model_state_dict"] = model.state_dict()
         self.checkpoint["model"] = model
 
         if save:
             self.save()
 
     def save(self):
-        # self.create_models_dir()
         with open(self.checkpoint_path, "wb") as f:
             pickle.dump(self.checkpoint, f)
 
         print(self.checkpoint_path)
-
-    # def create_models_dir(self):
-    #     try:
-    #         mkdir("models")
-    #     except FileExistsError:
-    #         pass
 
 
 class ValidationTraining(Task):
@@ -107,7 +97,8 @@ class ValidationTraining(Task):
         self.random_state = random_state
 
         self.encoder_tokenizer = Tokenizer(
-            special_tokens=["<pad>"]
+            special_tokens=["<pad>"],
+            min_freq=3
         )
         self.decoder_tokenizer = Tokenizer(
             special_tokens=["<sos>", "<eos>"]
@@ -121,7 +112,6 @@ class ValidationTraining(Task):
             text_encoder_data,
             text_decoder_data,
             test_size=self.validation_split,
-            random_state=self.random_state
         )
 
         X_train = self.encoder_tokenizer.fit_transform(X_train)
@@ -159,8 +149,7 @@ class Inference(Task):
 
         encoder_tokenizer: Tokenizer = self.checkpoint["encoder_tokenizer"]
         decoder_tokenizer: Tokenizer = self.checkpoint["decoder_tokenizer"]
-        # len_encoder_vocab = encoder_tokenizer.len_vocab
-        # len_decoder_vocab = decoder_tokenizer.len_vocab
+
         model = self.checkpoint["model"]
 
         text_encoder_data = extract_text_data(
@@ -169,8 +158,6 @@ class Inference(Task):
 
         encoder_data = encoder_tokenizer.transform(text_encoder_data)
         dl = get_dataloader(encoder_data)
-
-        # model.load_state_dict(model_state_dict)
 
         raw_pred = None
         raw_prob = None

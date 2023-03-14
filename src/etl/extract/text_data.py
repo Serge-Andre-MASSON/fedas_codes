@@ -9,6 +9,7 @@ def extract_text_data(
     path: Path
 ):
     df = pd.read_csv(path)
+    df = df.drop(1982) # This entry seems odd.
 
     if "correct_fedas_code" in df:
         return (extract_text_encoder_data(df),

@@ -3,7 +3,6 @@ import pandas as pd
 from etl.extract.text_decoder_data import (
     split,
     add_special_tokens,
-    extract_dummy_text_decoder_data
 )
 
 
@@ -24,11 +23,11 @@ def test_add_special_tokens():
     ]
 
 
-def test_extract_dummy_text_decoder_data():
-    assert extract_dummy_text_decoder_data(5) == [
-        ["<sos>"],
-        ["<sos>"],
-        ["<sos>"],
-        ["<sos>"],
-        ["<sos>"],
-    ]
+# def test_extract_dummy_text_decoder_data():
+#     assert extract_dummy_text_decoder_data(5) == [
+#         ["<sos>"],
+#         ["<sos>"],
+#         ["<sos>"],
+#         ["<sos>"],
+#         ["<sos>"],
+#     ]

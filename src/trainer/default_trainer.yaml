@@ -1,2 +1,2 @@
-epochs : 300
+epochs : 70
 lr : .0005

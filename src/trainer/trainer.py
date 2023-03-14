@@ -1,3 +1,4 @@
+from torch.optim.lr_scheduler import OneCycleLR, CyclicLR
 from os.path import dirname
 from pathlib import Path
 from yaml import load, Loader
@@ -30,7 +31,19 @@ class Trainer:
         with open(conf_path, "rb") as f:
             self.conf = load(f, Loader=Loader)
 
-        self.optimizer = Adam(model.parameters(), lr=self.conf["lr"])
+        self.optimizer = Adam(
+            model.parameters(),
+            lr=self.conf["lr"]
+        )
+        # TODO : remplacer le scheduler par un basique
+        self.scheduler = CyclicLR(
+            self.optimizer,
+            base_lr=self.conf["lr"],
+            max_lr=self.conf["lr"]*10,
+            mode='triangular2',
+            step_size_up=600,
+            cycle_momentum=False
+        )
 
     def fit(self, train_dl, test_dl=None, epochs: int = None):
 
@@ -47,6 +60,7 @@ class Trainer:
                 loss.backward()
                 self.optimizer.step()
                 self.optimizer.zero_grad()
+                self.scheduler.step()
 
                 losses.append(loss.detach().cpu().numpy())
             train_loss = sum(losses) / len(losses)
@@ -86,3 +100,4 @@ class Trainer:
                 print(f"validation loss  : {val_loss}")
                 print(f"validation accurracy  : {val_accuracy}")
                 print(f"validation sub accurracy  : {val_sub_accuracy}")
+                print(self.scheduler.get_last_lr()[0])
