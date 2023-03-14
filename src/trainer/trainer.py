@@ -30,7 +30,7 @@ class Trainer:
         with open(conf_path, "rb") as f:
             self.conf = load(f, Loader=Loader)
 
-        self.optimizer = Adam(model.parameters())
+        self.optimizer = Adam(model.parameters(), lr=self.conf["lr"])
 
     def fit(self, train_dl, test_dl=None, epochs: int = None):
 
