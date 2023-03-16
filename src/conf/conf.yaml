@@ -6,7 +6,7 @@ model:
   dim_feedforward: 128
 
 trainer:
-  epochs : 30
+  epochs : 25
   lr : .001
 scheduler:
   max_lr_factor: 4
