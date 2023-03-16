@@ -1,0 +1,23 @@
+model:
+  d_model: 32
+  nhead: 8
+  num_encoder_layers: 3
+  num_decoder_layers: 3
+  dim_feedforward: 128
+
+trainer:
+  epochs : 30
+  lr : .001
+scheduler:
+  max_lr_factor: 4
+
+dataloader:
+  train: 
+    batch_size: 2048
+    shuffle: True
+  inference:
+    batch_size: 4096
+    shuffle: False
+
+
+  

@@ -1,12 +1,8 @@
-from os.path import dirname
-from pathlib import Path
 import torch
-from yaml import load, Loader
 from torch.nn import Module, Embedding, Transformer, Linear
 
 from model.utils.utils import Mask, PositionalEncoding
-
-CONF_PATH = Path(f"{dirname(__file__)}") / "default_model.yaml"
+from conf.conf import get_conf
 
 
 class Model(Module):
@@ -36,7 +32,6 @@ class Model(Module):
             num_embeddings=len_decoder_vocab,
             embedding_dim=d_model)
 
-        self.x_pe = PositionalEncoding(d_model)
         self.y_pe = PositionalEncoding(d_model)
 
         self.transformer = Transformer(
@@ -55,7 +50,6 @@ class Model(Module):
         subsequent_mask = self.subsequent_mask(y)
 
         X = self.hints_embeddings(X)
-        X = self.x_pe(X)
 
         y = self.codes_embeddings(y)
         y = self.y_pe(y)
@@ -71,6 +65,7 @@ class Model(Module):
     @torch.no_grad()
     def predict(self, X: torch.Tensor):
         self.eval()  # For results consistency
+
         y_in = torch.zeros(X.size(0), 1)\
                     .long()\
                     .to("cuda")  # Assuming 0 is the <sos> token id
@@ -91,9 +86,8 @@ class Model(Module):
         return p, y
 
 
-def get_model(len_encoder_vocab: int, len_decoder_vocab: int, conf_path=CONF_PATH):
-    with open(conf_path) as f:
-        conf = load(f, Loader=Loader)
+def get_model(len_encoder_vocab: int, len_decoder_vocab: int):
+    conf = get_conf("model")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 

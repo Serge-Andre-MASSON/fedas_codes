@@ -1,3 +1,4 @@
+from time import time
 import argparse
 from task import get_task
 
@@ -11,9 +12,9 @@ train_parser.add_argument("train_data_path")
 train_parser.add_argument("--validation_split", "-v", type=float)
 train_parser.add_argument("--model-name", "-n")
 
-infer_parser = subparsers.add_parser('infer', help='')
-infer_parser.add_argument("model_checkpoint_path")
-infer_parser.add_argument("--infer_data_path", "-i")
+predict_parser = subparsers.add_parser('predict', help='')
+predict_parser.add_argument("test_data_path")
+predict_parser.add_argument("--model-name", "-n")
 
 
 def to_kwargs(args):
@@ -24,4 +25,6 @@ def cli():
     args = parser.parse_args()
     kwargs = to_kwargs(args)
     task = get_task(**kwargs)
+    t = time()
     task.run()
+    print("time elapsed :", time() - t)

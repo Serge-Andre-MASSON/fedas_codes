@@ -1,6 +1,0 @@
-train: 
-  batch_size: 2048
-  shuffle: True
-inference:
-  batch_size: 4096
-  shuffle: False

@@ -25,10 +25,9 @@ For experiment with a validation split (say 0.3) you max run
 $ fedas train <training_data.csv> -v .3
 ```
 
-Finally, for inference on new data with a trained_model run
-For experiment with a validation split (say 0.3) you max run
+Finally, for inference on new data with a trained model run
 ```console
-$ fedas infer <model_name>-i <unseen_data.csv> 
+$ fedas predict <unseen_data.csv> -n <model_name> 
 ```
 
 ## Notebook
@@ -48,6 +47,6 @@ task.run()
 ```
 
 # Remarks
-This repo does not intend to provide a state of the art fancy model. The main objective I've been chasing is to implement a consistent workflow and a versatile codebase. 
+This repo does not intend to provide a fancy state of the art model. The main objective I've been chasing is to implement a consistent workflow and a versatile codebase. 
 
-As a result, with a few improvements (soon to come), it will be easy to improve the model while working in an almost production ready environnemnt.
+As a result, with a few improvements (soon to come), it will be easy to improve the model while working in an almost production ready environment.

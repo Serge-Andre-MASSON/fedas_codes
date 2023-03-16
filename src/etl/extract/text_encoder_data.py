@@ -24,8 +24,9 @@ def extract_text_encoder_data(df: DataFrame):
 def get_hints(df: DataFrame) -> Series:
     return df[hints_cols].fillna("")\
                          .agg(" ".join, axis=1)\
+                         .apply(drop_after_semi_col)\
                          .str.lower()\
-                         .replace(r"[-_%,;&./0-9()]", " ", regex=True)\
+                         .replace(r"[-_%,&./0-9()]", " ", regex=True)\
                          .replace(r" \w ", " ", regex=True)\
                          .replace(r" {2,}", " ", regex=True)\
                          .str.strip()\
@@ -34,7 +35,15 @@ def get_hints(df: DataFrame) -> Series:
 
 def right_padded(X_: Iterable[list] | pd.Series):
     max_length = X_.apply(len).max()
-    for l in X_:
+    for i, l in enumerate(X_):
         while len(l) < max_length:
             l.append("<pad>")
     return X_
+
+
+# Hack
+def drop_after_semi_col(sequence: str):
+    if ";" in sequence:
+        semi_col_index = sequence.index(";")
+        return sequence[:semi_col_index]
+    return sequence

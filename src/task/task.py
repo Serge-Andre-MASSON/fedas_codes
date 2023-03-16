@@ -1,3 +1,4 @@
+import numpy as np
 from pathlib import Path
 import sys
 import pandas as pd
@@ -11,6 +12,7 @@ from etl.transform.tokenizer import Tokenizer
 
 from model.model import get_model
 from trainer.trainer import Trainer
+from trainer.summary import TrainingSummary
 
 MODEL_DIR = Path("models")
 MODEL_DIR.mkdir(exist_ok=True)
@@ -66,15 +68,20 @@ class Training(Task):
 
         model = get_model(len_encoder_vocab, len_decoder_vocab)
 
-        trainer = Trainer(model)
+        summary = TrainingSummary()
+        trainer = Trainer(model, summary)
+
         try:
             trainer.fit(dl)
         except KeyboardInterrupt:
             self.checkpoint["model"] = model
+            self.checkpoint["training_summary"] = summary
+
             self.save()
             sys.exit()
 
         self.checkpoint["model"] = model
+        self.checkpoint["training_summary"] = summary
 
         if save:
             self.save()
@@ -91,10 +98,12 @@ class ValidationTraining(Task):
     This should be used for experiments.
     """
 
-    def __init__(self, data_path, validation_split, random_state: int = 42):
+    def __init__(self, data_path, validation_split, model_name: str = None, random_state: int = 42):
         super().__init__(data_path)
         self.validation_split = validation_split
         self.random_state = random_state
+
+        model_name = model_name or id(self)
 
         self.encoder_tokenizer = Tokenizer(
             special_tokens=["<pad>"],
@@ -103,6 +112,12 @@ class ValidationTraining(Task):
         self.decoder_tokenizer = Tokenizer(
             special_tokens=["<sos>", "<eos>"]
         )
+
+        self.checkpoint_path = MODEL_DIR / f"{model_name}_val.PICKLE"
+
+        self.checkpoint = {
+            "model_name": model_name
+        }
 
     def run(self):
         text_encoder_data, text_decoder_data = extract_text_data(
@@ -128,11 +143,26 @@ class ValidationTraining(Task):
 
         model = get_model(len_encoder_vocab, len_decoder_vocab)
 
-        trainer = Trainer(model)
+        summary = TrainingSummary()
+        trainer = Trainer(model, summary)
+
         try:
             trainer.fit(train_dl, test_dl)
         except KeyboardInterrupt:
+            self.checkpoint["model"] = model
+            self.checkpoint["training_summary"] = summary
+            self.save()
             sys.exit()
+
+        self.checkpoint["model"] = model
+        self.checkpoint["training_summary"] = summary
+        self.save()
+
+    def save(self):
+        with open(self.checkpoint_path, "wb") as f:
+            pickle.dump(self.checkpoint, f)
+
+        print(self.checkpoint_path)
 
 
 class Inference(Task):
@@ -153,7 +183,8 @@ class Inference(Task):
         model = self.checkpoint["model"]
 
         text_encoder_data = extract_text_data(
-            self.data_path
+            self.data_path,
+            inference=True
         )
 
         encoder_data = encoder_tokenizer.transform(text_encoder_data)
@@ -179,8 +210,8 @@ class Inference(Task):
         )
 
         output_df["predicted_fedas_code"] = output_df["predicted_fedas_code"].apply(
-            lambda l: int(''.join(c for c in l))
-        ).astype(int)
+            lambda l: (''.join(c for c in l))
+        ).apply(to_int)
 
         prob_df = pd.DataFrame(raw_prob)
         output_df = pd.concat([output_df, prob_df], axis=1)
@@ -189,3 +220,11 @@ class Inference(Task):
         output_df.to_csv(output_path, index=False)
 
         return output_df
+
+
+def to_int(s):
+    try:
+        return int(s)
+    except:
+        s = s[:-1]
+        return to_int(s)
